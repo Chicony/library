@@ -88,6 +88,8 @@ async function initApp() {
 
 async function loadBooks() {
     try {
+        console.log('Loading books from GitHub...');
+        
         const response = await fetch('https://api.github.com/gists', {
             headers: { 
                 'Authorization': `Bearer ${githubToken}`,
@@ -106,18 +108,43 @@ async function loadBooks() {
         }
 
         const gists = await response.json();
-        const libraryGist = gists.find(g => g.files && g.files['library.json']);
+        console.log('Found gists:', gists.length);
+
+        // Ищем gist с файлом library.json
+        let libraryGist = null;
+        for (const gist of gists) {
+            if (gist.files && gist.files['library.json']) {
+                libraryGist = gist;
+                break;
+            }
+        }
         
         if (libraryGist) {
             gistId = libraryGist.id;
-            const content = libraryGist.files['library.json'].content;
+            localStorage.setItem('gistId', gistId);
+            console.log('Found library gist, id:', gistId);
             
-            // Проверка на пустой или невалидный контент
-            if (!content || content.trim() === '') {
+            // ВАЖНО: делаем отдельный запрос чтобы получить content файла!
+            const detailResponse = await fetch(`https://api.github.com/gists/${gistId}`, {
+                headers: { 
+                    'Authorization': `Bearer ${githubToken}`,
+                    'Accept': 'application/vnd.github.v3+json'
+                }
+            });
+            
+            if (!detailResponse.ok) {
+                throw new Error('Не удалось получить содержимое gist');
+            }
+            
+            const fullGist = await detailResponse.json();
+            const file = fullGist.files['library.json'];
+            console.log('File content:', file.content);
+            
+            if (!file.content || file.content.trim() === '') {
                 books = [];
             } else {
                 try {
-                    books = JSON.parse(content);
+                    books = JSON.parse(file.content);
                     if (!Array.isArray(books)) {
                         books = [];
                     }
@@ -127,9 +154,12 @@ async function loadBooks() {
                 }
             }
         } else {
+            console.log('Library gist not found');
             books = [];
+            gistId = null;
         }
         
+        console.log('Loaded books:', books);
         renderBooks();
     } catch (error) {
         console.error('Load error:', error);
@@ -139,6 +169,9 @@ async function loadBooks() {
 }
 
 async function saveToGist() {
+    console.log('Saving to gist, gistId:', gistId);
+    console.log('Books to save:', books);
+
     const data = {
         description: 'Моя библиотека книг',
         public: false,
@@ -166,18 +199,26 @@ async function saveToGist() {
             body: JSON.stringify(data)
         });
 
-        if (response.status === 404) {
-            gistId = null;
-            return await saveToGist();
-        }
+        console.log('Response status:', response.status);
 
         if (!response.ok) {
-            const err = await response.json();
-            throw new Error(err.message || response.status);
+            const errorText = await response.text();
+            console.error('Save error response:', errorText);
+            
+            if (response.status === 404 && gistId) {
+                console.log('Gist not found, creating new one');
+                gistId = null;
+                return await saveToGist();
+            }
+            
+            throw new Error(`Ошибка сохранения: ${response.status}`);
         }
 
         const result = await response.json();
         gistId = result.id;
+        console.log('Saved successfully, gistId:', gistId);
+        
+        localStorage.setItem('gistId', gistId);
     } catch (error) {
         console.error('Save error:', error);
         alert('Ошибка сохранения: ' + error.message);
