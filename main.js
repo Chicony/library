@@ -1,50 +1,111 @@
-let books = JSON.parse(localStorage.getItem('libraryBooks')) || [];
+let books = [];
+let gistId = null;
+let githubToken = null;
 
-function saveBooks() {
-    localStorage.setItem('libraryBooks', JSON.stringify(books));
+// Проверка токена при загрузке
+window.addEventListener('DOMContentLoaded', () => {
+    const savedToken = localStorage.getItem('githubToken');
+    if (savedToken) {
+        githubToken = savedToken;
+        initApp();
+    }
+});
+
+async function login() {
+    const token = document.getElementById('tokenInput').value.trim();
+    const errorDiv = document.getElementById('errorMessage');
+    
+    if (!token) {
+        errorDiv.textContent = 'Введите токен';
+        errorDiv.style.display = 'block';
+        return;
+    }
+
+    try {
+        // Проверка токена
+        const response = await fetch('https://api.github.com/user', {
+            headers: { 'Authorization': `token ${token}` }
+        });
+
+        if (!response.ok) {
+            throw new Error('Неверный токен');
+        }
+
+        const user = await response.json();
+        githubToken = token;
+        localStorage.setItem('githubToken', token);
+        
+        document.getElementById('userName').textContent = user.login;
+        document.getElementById('loginScreen').style.display = 'none';
+        document.getElementById('mainContent').style.display = 'block';
+        
+        await initApp();
+    } catch (error) {
+        errorDiv.textContent = 'Ошибка: ' + error.message;
+        errorDiv.style.display = 'block';
+    }
 }
 
-function exportBooks() {
-    const dataStr = JSON.stringify(books, null, 2);
-    const dataBlob = new Blob([dataStr], {type: 'application/json'});
-    const url = URL.createObjectURL(dataBlob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `library-backup-${new Date().toISOString().split('T')[0]}.json`;
-    link.click();
-    URL.revokeObjectURL(url);
+function logout() {
+    localStorage.removeItem('githubToken');
+    location.reload();
 }
 
-function importBooks(event) {
-    const file = event.target.files[0];
-    if (!file) return;
+async function initApp() {
+    // Поиск существующего gist
+    const response = await fetch('https://api.github.com/gists', {
+        headers: { 'Authorization': `token ${githubToken}` }
+    });
+    const gists = await response.json();
+    
+    const libraryGist = gists.find(g => g.files['library.json']);
+    
+    if (libraryGist) {
+        gistId = libraryGist.id;
+        const content = libraryGist.files['library.json'].content;
+        books = JSON.parse(content);
+    } else {
+        books = [];
+    }
+    
+    renderBooks();
+}
 
-    const reader = new FileReader();
-    reader.onload = function(e) {
-        try {
-            const importedBooks = JSON.parse(e.target.result);
-            
-            if (!Array.isArray(importedBooks)) {
-                alert('Неверный формат файла');
-                return;
+async function saveToGist() {
+    const data = {
+        description: 'Моя библиотека книг',
+        public: false,
+        files: {
+            'library.json': {
+                content: JSON.stringify(books, null, 2)
             }
-
-            if (confirm(`Импортировать ${importedBooks.length} книг? Текущие данные будут заменены.`)) {
-                books = importedBooks;
-                saveBooks();
-                renderBooks();
-                alert('Импорт успешен!');
-            }
-        } catch (error) {
-            alert('Ошибка при чтении файла');
-            console.error(error);
         }
     };
-    reader.readAsText(file);
-    event.target.value = '';
+
+    const url = gistId 
+        ? `https://api.github.com/gists/${gistId}`
+        : 'https://api.github.com/gists';
+    
+    const method = gistId ? 'PATCH' : 'POST';
+
+    const response = await fetch(url, {
+        method: method,
+        headers: {
+            'Authorization': `token ${githubToken}`,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+    });
+
+    if (!response.ok) {
+        alert('Ошибка сохранения');
+    } else {
+        const result = await response.json();
+        gistId = result.id;
+    }
 }
 
-function addBook() {
+async function addBook() {
     const title = document.getElementById('bookTitle').value.trim();
     const author = document.getElementById('bookAuthor').value.trim();
     const genre = document.getElementById('bookGenre').value;
@@ -68,7 +129,7 @@ function addBook() {
     };
 
     books.push(book);
-    saveBooks();
+    await saveToGist();
     renderBooks();
 
     document.getElementById('bookTitle').value = '';
@@ -78,20 +139,19 @@ function addBook() {
     document.getElementById('bookDate').value = '';
 }
 
-function deleteBook(id) {
+async function deleteBook(id) {
     if (confirm('Удалить эту книгу?')) {
         books = books.filter(book => book.id !== id);
-        saveBooks();
+        await saveToGist();
         renderBooks();
     }
 }
 
-function moveBook(id, newStatus) {
+async function moveBook(id, newStatus) {
     const book = books.find(b => b.id === id);
     book.status = newStatus;
     
     if (newStatus === 'read') {
-        document.getElementById('ratingRow').style.display = 'grid';
         const rating = prompt('Оцените книгу (1-5):');
         const date = prompt('Дата прочтения (YYYY-MM-DD):', new Date().toISOString().split('T')[0]);
         
@@ -106,7 +166,7 @@ function moveBook(id, newStatus) {
         book.date = null;
     }
     
-    saveBooks();
+    await saveToGist();
     renderBooks();
 }
 
@@ -116,13 +176,13 @@ function renderBooks() {
     const readBooks = books.filter(book => 
         book.status === 'read' && 
         (book.title.toLowerCase().includes(searchTerm) || 
-        book.author.toLowerCase().includes(searchTerm))
+         book.author.toLowerCase().includes(searchTerm))
     );
     
     const wantToReadBooks = books.filter(book => 
         book.status === 'want' && 
         (book.title.toLowerCase().includes(searchTerm) || 
-        book.author.toLowerCase().includes(searchTerm))
+         book.author.toLowerCase().includes(searchTerm))
     );
 
     document.getElementById('readCount').textContent = readBooks.length;
@@ -164,5 +224,3 @@ document.getElementById('bookStatus').addEventListener('change', function() {
     document.getElementById('ratingRow').style.display = 
         this.value === 'read' ? 'grid' : 'none';
 });
-
-renderBooks();

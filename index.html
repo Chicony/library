@@ -7,7 +7,23 @@
     <link rel="stylesheet" href="main.css">
 </head>
 <body>
-    <div class="container">
+    <!-- Экран входа -->
+    <div id="loginScreen" class="login-container">
+        <h2>🔐 Вход в библиотеку</h2>
+        <p>Для синхронизации между устройствами нужен GitHub токен:</p>
+        <ol>
+            <li>Создайте аккаунт на <a href="https://github.com" target="_blank">GitHub</a> (бесплатно)</li>
+            <li>Перейдите в <a href="https://github.com/settings/tokens" target="_blank">Settings → Developer settings → Personal access tokens</a></li>
+            <li>Нажмите "Generate new token (classic)"</li>
+            <li>Дайте имя (например "Library"), выберите scope <strong>gist</strong></li>
+            <li>Скопируйте токен и вставьте ниже</li>
+        </ol>
+        <div id="errorMessage" class="error-message"></div>
+        <input type="password" id="tokenInput" class="token-input" placeholder="Вставьте GitHub токен">
+        <button class="login-btn" onclick="login()">Войти</button>
+    </div>
+
+    <div class="container" id="mainContent" style="display: none;">
         <header>
             <h1>📚 Моя Библиотека</h1>
             <div class="sync-buttons">
