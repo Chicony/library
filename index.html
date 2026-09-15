@@ -7,90 +7,83 @@
     <link rel="stylesheet" href="main.css">
 </head>
 <body>
-    <!-- Экран входа -->
-    <div id="loginScreen" class="login-container">
-        <h2>🔐 Вход в библиотеку</h2>
-        <p>Для синхронизации между устройствами нужен GitHub токен:</p>
-        <ol>
-            <li>Создайте аккаунт на <a href="https://github.com" target="_blank">GitHub</a> (бесплатно)</li>
-            <li>Перейдите в <a href="https://github.com/settings/tokens" target="_blank">Settings → Developer settings → Personal access tokens</a></li>
-            <li>Нажмите "Generate new token (classic)"</li>
-            <li>Дайте имя (например "Library"), выберите scope <strong>gist</strong></li>
-            <li>Скопируйте токен и вставьте ниже</li>
-        </ol>
-        <div id="errorMessage" class="error-message"></div>
-        <input type="password" id="tokenInput" class="token-input" placeholder="Вставьте GitHub токен">
-        <button class="login-btn" onclick="login()">Войти</button>
-    </div>
+    <div class="container">
+        <!-- Экран входа -->
+        <div id="loginScreen" class="login-container">
+            <h2>🔐 Вход в библиотеку</h2>
+            <p>Для синхронизации между устройствами нужен GitHub токен:</p>
+            <ol>
+                <li>Создайте аккаунт на <a href="https://github.com" target="_blank">GitHub</a> (бесплатно)</li>
+                <li>Перейдите в <a href="https://github.com/settings/tokens" target="_blank">Settings → Developer settings → Personal access tokens</a></li>
+                <li>Нажмите "Generate new token (classic)"</li>
+                <li>Дайте имя (например "Library"), выберите scope <strong>gist</strong></li>
+                <li>Скопируйте токен и вставьте ниже</li>
+            </ol>
+            <div id="errorMessage" class="error-message"></div>
+            <input type="password" id="tokenInput" class="token-input" placeholder="Вставьте GitHub токен">
+            <button class="login-btn" onclick="login()">Войти</button>
+        </div>
 
-    <div class="container" id="mainContent" style="display: none;">
-        <header>
-            <h1>📚 Моя Библиотека</h1>
-            <div class="sync-buttons">
-                <button class="sync-btn" onclick="exportBooks()">📥 Экспорт</button>
-                <button class="sync-btn" onclick="document.getElementById('fileInput').click()">📤 Импорт</button>
-                <input type="file" id="fileInput" accept=".json" onchange="importBooks(event)">
-            </div>
-            <div class="stats">
-                <div class="stat-item">
-                    <div class="stat-number" id="readCount">0</div>
-                    <div>Прочитано</div>
+        <!-- Основной контент -->
+        <div id="mainContent" style="display: none;">
+            <header>
+                <h1>📚 Моя Библиотека</h1>
+                <div class="user-info">
+                    <span id="userName">Пользователь</span>
+                    <button class="logout-btn" onclick="logout()">Выйти</button>
                 </div>
-                <div class="stat-item">
-                    <div class="stat-number" id="wantToReadCount">0</div>
-                    <div>Хочу прочитать</div>
+                <div class="stats">
+                    <div class="stat-item">
+                        <div class="stat-number" id="readCount">0</div>
+                        <div>Прочитано</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-number" id="wantToReadCount">0</div>
+                        <div>Хочу прочитать</div>
+                    </div>
+                </div>
+            </header>
+
+            <div class="form-container">
+                <h2 style="margin-bottom: 20px;">Добавить книгу</h2>
+                <div class="form-row">
+                    <input type="text" id="bookTitle" placeholder="Название книги">
+                    <input type="text" id="bookAuthor" placeholder="Автор">
+                    <select id="bookGenre">
+                        <option value="">Жанр</option>
+                        <option value="Фантастика">Фантастика</option>
+                        <option value="Детектив">Детектив</option>
+                        <option value="Роман">Роман</option>
+                        <option value="Фэнтези">Фэнтези</option>
+                        <option value="Научная литература">Научная литература</option>
+                        <option value="Биография">Биография</option>
+                        <option value="Другое">Другое</option>
+                    </select>
+                    <select id="bookStatus">
+                        <option value="want">Хочу прочитать</option>
+                        <option value="read">Прочитано</option>
+                    </select>
+                    <button onclick="addBook()">Добавить</button>
+                </div>
+                <div class="form-row" id="ratingRow" style="display: none;">
+                    <input type="number" id="bookRating" placeholder="Рейтинг (1-5)" min="1" max="5">
+                    <input type="date" id="bookDate">
                 </div>
             </div>
-        </header>
-        <div class="info-box">
-            <h3>💡 Как синхронизировать между устройствами:</h3>
-            <ul>
-                <li>Нажмите <strong>"Экспорт"</strong> чтобы сохранить библиотеку в файл</li>
-                <li>Загрузите файл в облако (Google Drive, Dropbox, Telegram)</li>
-                <li>На другом устройстве нажмите <strong>"Импорт"</strong> и выберите файл</li>
-                <li>Данные обновятся автоматически!</li>
-            </ul>
-        </div>
 
-        <div class="form-container">
-            <h2 style="margin-bottom: 20px;">Добавить книгу</h2>
-            <div class="form-row">
-                <input type="text" id="bookTitle" placeholder="Название книги">
-                <input type="text" id="bookAuthor" placeholder="Автор">
-                <select id="bookGenre">
-                    <option value="">Жанр</option>
-                    <option value="Фантастика">Фантастика</option>
-                    <option value="Детектив">Детектив</option>
-                    <option value="Роман">Роман</option>
-                    <option value="Фэнтези">Фэнтези</option>
-                    <option value="Научная литература">Научная литература</option>
-                    <option value="Биография">Биография</option>
-                    <option value="Другое">Другое</option>
-                </select>
-                <select id="bookStatus">
-                    <option value="want">Хочу прочитать</option>
-                    <option value="read">Прочитано</option>
-                </select>
-                <button onclick="addBook()">Добавить</button>
+            <div class="search-container">
+                <input type="text" class="search-input" id="searchInput" placeholder="🔍 Поиск по названию или автору..." oninput="renderBooks()">
             </div>
-            <div class="form-row" id="ratingRow" style="display: none;">
-                <input type="number" id="bookRating" placeholder="Рейтинг (1-5)" min="1" max="5">
-                <input type="date" id="bookDate">
+
+            <div class="books-section">
+                <h2 class="section-title">📖 Прочитано</h2>
+                <div class="books-grid" id="readBooks"></div>
             </div>
-        </div>
 
-        <div class="search-container">
-            <input type="text" class="search-input" id="searchInput" placeholder="🔍 Поиск по названию или автору..." oninput="renderBooks()">
-        </div>
-
-        <div class="books-section">
-            <h2 class="section-title">📖 Прочитано</h2>
-            <div class="books-grid" id="readBooks"></div>
-        </div>
-
-        <div class="books-section">
-            <h2 class="section-title">📋 Хочу прочитать</h2>
-            <div class="books-grid" id="wantToReadBooks"></div>
+            <div class="books-section">
+                <h2 class="section-title">📋 Хочу прочитать</h2>
+                <div class="books-grid" id="wantToReadBooks"></div>
+            </div>
         </div>
     </div>
 

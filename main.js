@@ -2,7 +2,6 @@ let books = [];
 let gistId = null;
 let githubToken = null;
 
-// Проверка токена при загрузке
 window.addEventListener('DOMContentLoaded', () => {
     const savedToken = localStorage.getItem('githubToken');
     if (savedToken) {
@@ -22,7 +21,6 @@ async function login() {
     }
 
     try {
-        // Проверка токена
         const response = await fetch('https://api.github.com/user', {
             headers: { 'Authorization': `token ${token}` }
         });
@@ -52,23 +50,36 @@ function logout() {
 }
 
 async function initApp() {
-    // Поиск существующего gist
-    const response = await fetch('https://api.github.com/gists', {
-        headers: { 'Authorization': `token ${githubToken}` }
-    });
-    const gists = await response.json();
-    
-    const libraryGist = gists.find(g => g.files['library.json']);
-    
-    if (libraryGist) {
-        gistId = libraryGist.id;
-        const content = libraryGist.files['library.json'].content;
-        books = JSON.parse(content);
-    } else {
-        books = [];
+    try {
+        const userResponse = await fetch('https://api.github.com/user', {
+            headers: { 'Authorization': `token ${githubToken}` }
+        });
+        const user = await userResponse.json();
+        document.getElementById('userName').textContent = user.login;
+        document.getElementById('loginScreen').style.display = 'none';
+        document.getElementById('mainContent').style.display = 'block';
+
+        const response = await fetch('https://api.github.com/gists', {
+            headers: { 'Authorization': `token ${githubToken}` }
+        });
+        const gists = await response.json();
+        
+        const libraryGist = gists.find(g => g.files['library.json']);
+        
+        if (libraryGist) {
+            gistId = libraryGist.id;
+            const content = libraryGist.files['library.json'].content;
+            books = JSON.parse(content);
+        } else {
+            books = [];
+        }
+        
+        renderBooks();
+    } catch (error) {
+        console.error('Ошибка:', error);
+        alert('Ошибка подключения. Проверьте токен.');
+        logout();
     }
-    
-    renderBooks();
 }
 
 async function saveToGist() {
@@ -176,13 +187,13 @@ function renderBooks() {
     const readBooks = books.filter(book => 
         book.status === 'read' && 
         (book.title.toLowerCase().includes(searchTerm) || 
-         book.author.toLowerCase().includes(searchTerm))
+        book.author.toLowerCase().includes(searchTerm))
     );
     
     const wantToReadBooks = books.filter(book => 
         book.status === 'want' && 
         (book.title.toLowerCase().includes(searchTerm) || 
-         book.author.toLowerCase().includes(searchTerm))
+        book.author.toLowerCase().includes(searchTerm))
     );
 
     document.getElementById('readCount').textContent = readBooks.length;
